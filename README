@@ -1,0 +1,18 @@
+
+Simple CLI to send xmpp messages.
+
+## Install
+
+`pip install slixmpp`
+
+## Run 
+
+
+```
+export XMPP_PASS="password"
+echo 'message' | ./send_slixmpp.py 'from@address.com' 'to@address.com/resource'
+````
+
+
+Resource can be '*' for wildcard for all deviecs/apps that have logged into that address.
+
