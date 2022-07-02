@@ -33,16 +33,15 @@ class EchoBot(ClientXMPP):
         self.dest_jid = None
         self.message = None
 
-    def setup_echo(self):
-        self.add_event_handler("message", self.message_event)
+    def start_echo(self):
+        self.add_event_handler("message", self.echo_message)
 
     def session_start(self, event):
         self.send_presence()
         self.get_roster()
 
-        if self.message is not None:
+        if self.message is not None and self.dest_jid is not None:
             self.send_message(mto=self.dest_jid, mbody=self.message)
-
             self.disconnect()
 
         # Most get_*/set_* methods from plugins use Iq stanzas, which
@@ -58,7 +57,7 @@ class EchoBot(ClientXMPP):
         #     logging.error('Server is taking too long to respond')
         #     self.disconnect()
 
-    def message_event(self, msg):
+    def echo_message(self, msg):
         if msg['type'] in ('chat', 'normal'):
             msg.reply("Thanks for sending\n%(body)s" % msg).send()
 
@@ -66,14 +65,22 @@ class EchoBot(ClientXMPP):
 if __name__ == '__main__':
     # Ideally use optparse or argparse to get JID,
     # password, and log level.
-    parser = argparse.ArgumentParser(epilog="Set XMPP_PASS in the environment for the password.\n"+
-            "Example: echo 'message' | ./send_slixmpp.py 'from@address.com' 'to@address.com'"
-            )
+    run_cmd = 'XMPP_PASS=xxx '+__file__
+    parser = argparse.ArgumentParser(
+        description="Sends message from stdin to xmpp server",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='Set password with "'+
+        run_cmd+'"'+"\n\n"+
+	"Example...\n"+
+	"echo 'message' | "+run_cmd+" user@xmpp.server.com touser@xmpp.server.com/*"
+	)
     parser.add_argument("user", type=str, help="from jid xxx@xxmpserver.com/resource")
-    parser.add_argument("dest", type=str, nargs="?", help="destination jid xxx@xxmpserver.com/resource")
+    parser.add_argument("dest", nargs='?', type=str, help="destination jid xxx@xxmpserver.com/resource")
+    parser.add_argument("--address", type=str, help="server.com:port")
     parser.add_argument("--echo", action="store_true", help="Echo any messages received")
     parser.add_argument("--verbose", action="store_true", help="Verbose")
     args = parser.parse_args()
+
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
@@ -85,15 +92,22 @@ if __name__ == '__main__':
         os.environ['XMPP_PASS']
         )
     xmpp.dest_jid=args.dest
-    if args.echo is True:
-        xmpp.setup_echo()
-        xmpp.connect()
-        xmpp.process(forever=True)
+    if args.echo:
+        xmpp.start_echo()
     else:
         data = sys.stdin.readlines()
         s = ("\n".join(data)).strip()
         if len(s)<=0:
             exit(0)
         xmpp.message=s
+
+    if args.address:
+        addressArr=args.address.split(':')
+        xmpp.connect((addressArr[0], int(addressArr[1])))
+    else:
         xmpp.connect()
+    if args.echo:
+        xmpp.process(forever=True)
+    else:
         xmpp.process(forever=False)
+
