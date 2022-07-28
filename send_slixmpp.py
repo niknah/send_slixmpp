@@ -1,15 +1,16 @@
 #!/usr/bin/python3
 
 import sys
+import argparse
+import logging
+import threading
 import os
 file_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(file_path+'/slixmpp')
 
-import argparse
-import logging
 
 from slixmpp import ClientXMPP
-from slixmpp.exceptions import IqError, IqTimeout
+# from slixmpp.exceptions import IqError, IqTimeout
 
 
 class EchoBot(ClientXMPP):
@@ -33,16 +34,28 @@ class EchoBot(ClientXMPP):
         self.dest_jid = None
         self.message = None
 
-    def start_echo(self):
+    def setup_echo(self):
         self.add_event_handler("message", self.echo_message)
+
+    def send_message_lines(self):
+        upto = 0
+        while upto < len(self.message):
+            uptoNext = upto + 10
+            s = ("\n".join(self.message[upto:uptoNext])).strip()
+            if len(s) <= 0:
+                break
+
+            self.send_message(mto=self.dest_jid, mbody=s)
+            upto = uptoNext
+        self.disconnect()
 
     def session_start(self, event):
         self.send_presence()
         self.get_roster()
 
         if self.message is not None and self.dest_jid is not None:
-            self.send_message(mto=self.dest_jid, mbody=self.message)
-            self.disconnect()
+            self.send_message_lines()
+#            threading.Timer(2,self.send_message_lines).start()
 
         # Most get_*/set_* methods from plugins use Iq stanzas, which
         # can generate IqError and IqTimeout exceptions
@@ -69,40 +82,51 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Sends message from stdin to xmpp server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='Set password with "'+
-        run_cmd+'"'+"\n\n"+
-	"Example...\n"+
-	"echo 'message' | "+run_cmd+" user@xmpp.server.com touser@xmpp.server.com/*"
-	)
-    parser.add_argument("user", type=str, help="from jid xxx@xxmpserver.com/resource")
-    parser.add_argument("dest", nargs='?', type=str, help="destination jid xxx@xxmpserver.com/resource")
-    parser.add_argument("--address", type=str, help="server.com:port")
-    parser.add_argument("--echo", action="store_true", help="Echo any messages received")
+        epilog='Set password with "' +
+        run_cmd + '"' + "\n\n" +
+        "Example...\n" +
+        "echo 'message' | " + run_cmd +
+        " user@xmpp.server.com touser@xmpp.server.com/*"
+    )
+    parser.add_argument(
+            "user", type=str,
+            help="from jid xxx@xxmpserver.com/resource")
+    parser.add_argument(
+            "dest", nargs='?', type=str,
+            help="destination jid xxx@xxmpserver.com/resource")
+    parser.add_argument(
+            "--address", type=str,
+            help="server.com:port")
+    parser.add_argument(
+            "--echo", action="store_true",
+            help="Echo any messages received")
     parser.add_argument("--verbose", action="store_true", help="Verbose")
     args = parser.parse_args()
 
-
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(levelname)-8s %(message)s')
 
     user = args.user
     if 'XMPP_USER' in os.environ:
         user = os.environ['XMPP_USER']
-    xmpp = EchoBot(user,
+    xmpp = EchoBot(
+        user,
         os.environ['XMPP_PASS']
         )
-    xmpp.dest_jid=args.dest
+    xmpp.dest_jid = args.dest
     if args.echo:
-        xmpp.start_echo()
-    else:
+        xmpp.setup_echo()
+    elif xmpp.dest_jid is not None:
         data = sys.stdin.readlines()
-        s = ("\n".join(data)).strip()
-        if len(s)<=0:
-            exit(0)
-        xmpp.message=s
+        xmpp.message = data
+    else:
+        print("Must mention destination address\n")
+        exit(1)
 
     if args.address:
-        addressArr=args.address.split(':')
+        addressArr = args.address.split(':')
         xmpp.connect((addressArr[0], int(addressArr[1])))
     else:
         xmpp.connect()
@@ -110,4 +134,3 @@ if __name__ == '__main__':
         xmpp.process(forever=True)
     else:
         xmpp.process(forever=False)
-
