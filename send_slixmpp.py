@@ -2,6 +2,7 @@
 
 import sys
 import os
+import platform
 file_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(file_path+'/slixmpp')
 
@@ -42,7 +43,8 @@ class EchoBot(ClientXMPP):
             if len(s) <= 0:
                 break
 
-            self.send_message(mto=self.dest_jid, mbody=s)
+            mbody = "Host: {}\n{}".format(platform.node(), s)
+            self.send_message(mto=self.dest_jid, mbody=mbody)
             upto = uptoNext
 
     def session_start(self, event):
