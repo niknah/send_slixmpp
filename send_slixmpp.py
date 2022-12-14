@@ -31,19 +31,29 @@ class EchoBot(ClientXMPP):
         # self.ssl_version = ssl.PROTOCOL_SSLv3
         self.dest_jid = None
         self.message = None
+        self.subject = None
 
     def start_echo(self):
         self.add_event_handler("message", self.echo_message)
 
     def send_message_lines(self):
         upto = 0
+        subject = args.subject
+        if subject is None:
+            subject = ''
+        else:
+            subject = subject + "\n"
         while upto < len(self.message):
             uptoNext = upto + 10
             s = ("\n".join(self.message[upto:uptoNext])).strip()
             if len(s) <= 0:
                 break
 
-            mbody = "Host: {}\n{}".format(platform.node(), s)
+            mbody = "Host: {}\n{}{}".format(
+                platform.node(), 
+                subject,
+                s
+                )
             self.send_message(mto=self.dest_jid, mbody=mbody)
             upto = uptoNext
 
@@ -98,6 +108,11 @@ if __name__ == '__main__':
         help="destination jid xxx@xxmpserver.com/resource"
         )
     parser.add_argument(
+        "--subject",
+        type=str,
+        help="Subject of message"
+        )
+    parser.add_argument(
         "--address",
         type=str,
         help="server.com:port"
@@ -126,6 +141,9 @@ if __name__ == '__main__':
             exit(0)
         xmpp = start_xmpp(args)
         xmpp.message = data
+
+    if args.subject:
+        xmpp.subject = args.subject
 
     if args.address:
         addressArr = args.address.split(':')
