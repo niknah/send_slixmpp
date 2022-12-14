@@ -44,8 +44,8 @@ class EchoBot(ClientXMPP):
         else:
             subject = subject + "\n"
         while upto < len(self.message):
-            uptoNext = upto + 10
-            s = ("\n".join(self.message[upto:uptoNext])).strip()
+            uptoNext = upto + 20
+            s = ("".join(self.message[upto:uptoNext])).strip()
             if len(s) <= 0:
                 break
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         xmpp.start_echo()
     else:
         data = sys.stdin.readlines()
-        s = ("\n".join(data)).strip()
+        s = ("".join(data)).strip()
         if len(s) <= 0:
             exit(0)
         xmpp = start_xmpp(args)
