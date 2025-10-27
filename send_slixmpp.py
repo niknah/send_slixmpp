@@ -43,19 +43,21 @@ class EchoBot(ClientXMPP):
             subject = ''
         else:
             subject = subject + "\n"
-        while upto < len(self.message):
+        messages_count = 0
+        while upto < len(self.message) and messages_count < 3:
             uptoNext = upto + 20
             s = ("".join(self.message[upto:uptoNext])).strip()
             if len(s) <= 0:
                 break
 
             mbody = "Host: {}\n{}{}".format(
-                platform.node(), 
+                platform.node(),
                 subject,
                 s
                 )
             self.send_message(mto=self.dest_jid, mbody=mbody)
             upto = uptoNext
+            messages_count += 1
 
     def session_start(self, event):
         self.send_presence()
