@@ -1,9 +1,17 @@
 
+
+
+
+
+
+
+
+
 Simple CLI to send xmpp messages.
 
 ## Install
 
-`pip install slixmpp`
+git clone --depth=1 https://codeberg.org/poezio/slixmpp
 
 ## Run 
 

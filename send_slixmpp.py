@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# git clone --depth=1 https://codeberg.org/poezio/slixmpp
+
 import sys
 import os
 import platform
@@ -8,6 +10,7 @@ sys.path.append(file_path+'/slixmpp')
 
 import argparse  # noqa: E402
 import logging  # noqa: E402
+import asyncio
 
 from slixmpp import ClientXMPP  # noqa: E402
 
@@ -84,6 +87,53 @@ def start_xmpp(args):
     return xmpp
 
 
+
+
+
+class SendMsgBot(ClientXMPP):
+
+    """
+    A basic Slixmpp bot that will log in, send a message,
+    and then log out.
+    """
+
+    def __init__(self, jid, password, recipient, message):
+        ClientXMPP.__init__(self, jid, password)
+
+        # The message we wish to send, and the JID that
+        # will receive it.
+        self.recipient = recipient
+        self.msg = message
+
+        # The session_start event will be triggered when
+        # the bot establishes its connection with the server
+        # and the XML streams are ready for use. We want to
+        # listen for this event so that we we can initialize
+        # our roster.
+        self.add_event_handler("session_start", self.start)
+
+    async def start(self, event):
+        """
+        Process the session_start event.
+
+        Typical actions for the session_start event are
+        requesting the roster and broadcasting an initial
+        presence stanza.
+
+        Arguments:
+            event -- An empty dictionary. The session_start
+                     event does not provide any additional
+                     data.
+        """
+        self.send_presence()
+        await self.get_roster()
+
+        self.send_message(mto=self.recipient,
+                          mbody=self.msg,
+                          mtype='chat')
+
+        self.disconnect()
+
 if __name__ == '__main__':
     # Ideally use optparse or argparse to get JID,
     # password, and log level.
@@ -133,26 +183,43 @@ if __name__ == '__main__':
             format='%(levelname)-8s %(message)s'
             )
 
-    if args.echo:
-        xmpp = start_xmpp(args)
-        xmpp.start_echo()
-    else:
-        data = sys.stdin.readlines()
-        s = ("".join(data)).strip()
-        if len(s) <= 0:
-            exit(0)
-        xmpp = start_xmpp(args)
-        xmpp.message = data
+    data = sys.stdin.readlines()
+    s = ("".join(data)).strip()
+    if len(s) <= 0:
+        exit(0)
+    subject =  args.subject or ""
+    message = f"{subject}\n\n{s}"
 
-    if args.subject:
-        xmpp.subject = args.subject
+    password = os.environ['XMPP_PASS']
+    xmpp = SendMsgBot(args.user, password, args.dest, message)
+    xmpp.register_plugin('xep_0030') # Service Discovery
+    xmpp.register_plugin('xep_0199') # XMPP Ping
 
-    if args.address:
-        addressArr = args.address.split(':')
-        xmpp.connect((addressArr[0], int(addressArr[1])))
-    else:
-        xmpp.connect()
-    if args.echo:
-        xmpp.process(forever=True)
-    else:
-        xmpp.process(forever=False)
+
+    # Connect to the XMPP server and start processing XMPP stanzas.
+    xmpp.connect()
+    asyncio.get_event_loop().run_until_complete(xmpp.disconnected)
+
+#    if args.echo:
+#        xmpp = start_xmpp(args)
+#        xmpp.start_echo()
+#    else:
+#        data = sys.stdin.readlines()
+#        s = ("".join(data)).strip()
+#        if len(s) <= 0:
+#            exit(0)
+#        xmpp = start_xmpp(args)
+#        xmpp.message = data
+#
+#    if args.subject:
+#        xmpp.subject = args.subject
+#
+#    if args.address:
+#        addressArr = args.address.split(':')
+#        xmpp.connect((addressArr[0], int(addressArr[1])))
+#    else:
+#        xmpp.connect()
+#    if args.echo:
+#        xmpp.process(forever=True)
+#    else:
+#        xmpp.process(forever=False)
